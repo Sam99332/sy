@@ -1,0 +1,1067 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>My Uploaded Practicals — Viewer & Download</title>
+  <style>
+    :root{
+      --bg:#0f1724; --card:#0b1220; --muted:#9aa4b2; --accent:#7dd3fc;
+      --glass: rgba(255,255,255,0.03);
+      color-scheme: dark;
+    }
+    body{
+      margin:0; font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: linear-gradient(180deg,#071025 0%, #071e2a 100%);
+      color:#e6eef6; min-height:100vh; display:flex; align-items:center; justify-content:center;
+      padding:24px;
+    }
+    .wrap{
+      width:100%; max-width:1100px; background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:12px; box-shadow: 0 6px 30px rgba(2,6,23,0.7); overflow:hidden;
+      display:grid; grid-template-columns:280px 1fr; gap:0;
+    }
+    aside{
+      padding:18px; background:var(--card); border-right:1px solid rgba(255,255,255,0.02);
+      display:flex; flex-direction:column; gap:12px;
+    }
+    h1{font-size:16px;margin:0 0 6px 0}
+    .file-list{display:flex;flex-direction:column;gap:8px; overflow:auto; padding-right:6px}
+    .file-item{
+      padding:10px;border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:8px;
+      background:transparent; border:1px solid transparent;
+    }
+    .file-item.active{ background: linear-gradient(90deg, rgba(125,211,252,0.06), rgba(125,211,252,0.02)); border-color: rgba(125,211,252,0.12); }
+    .file-item:hover{ transform:translateY(-1px); transition:all .12s ease; }
+    .meta{ font-size:12px; color:var(--muted) }
+    .controls{ margin-top:8px; display:flex; gap:8px; align-items:center }
+    .btn{
+      background:transparent; border:1px solid rgba(255,255,255,0.06); padding:8px 10px; border-radius:8px; color:var(--accent);
+      cursor:pointer; font-weight:600; font-size:13px;
+    }
+    main{ padding:18px; display:flex; flex-direction:column; gap:12px; min-height:420px; background:linear-gradient(180deg, rgba(255,255,255,0.006), transparent) }
+    .toolbar{ display:flex; gap:8px; align-items:center }
+    input.search{ flex:1; padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.04); background:var(--glass); color:inherit }
+    .actions{ margin-left:auto; display:flex; gap:8px; }
+    .viewer{
+      flex:1; background:#081422; border-radius:10px; padding:12px; overflow:auto; border:1px solid rgba(255,255,255,0.02);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Courier New", monospace; font-size:13px;
+    }
+    pre{ white-space:pre-wrap; word-break:break-word; margin:0; line-height:1.45 }
+    .bottombar{ display:flex; gap:8px; align-items:center; justify-content:space-between; margin-top:10px; color:var(--muted); font-size:13px }
+    .small{ font-size:12px; color:var(--muted) }
+    .copy-ok{ color:#34d399; font-weight:700; margin-left:8px }
+    @media(max-width:880px){
+      .wrap{ grid-template-columns:1fr; }
+      aside{ order:2 }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap" role="application">
+    <aside>
+      <div>
+        <h1>Uploaded Files</h1>
+        <div class="small">Saved in this page — view & download</div>
+      </div>
+
+      <div class="file-list" id="fileList" role="list">
+        <!-- file items inserted by JS -->
+      </div>
+
+      <div class="controls">
+        <button class="btn" id="openAll">Open Both</button>
+        <button class="btn" id="downloadAll">Download All (.zip not included)</button>
+      </div>
+
+      <div style="margin-top:auto; font-size:12px; color:var(--muted)">
+        Tip: Save this HTML file (e.g., <code>index.html</code>) and open it in a browser. Files are embedded in the page.
+      </div>
+    </aside>
+
+    <main>
+      <div class="toolbar">
+        <input class="search" id="searchInput" placeholder="Search inside the open file (press Enter)..." />
+        <div class="actions">
+          <button class="btn" id="copyBtn">Copy</button>
+          <button class="btn" id="downloadBtn">Download</button>
+          <button class="btn" id="openNewBtn">Open in New Window</button>
+        </div>
+      </div>
+
+      <div class="viewer" id="viewer" tabindex="0" role="document" aria-label="File contents">
+        <pre id="fileContent">Select a file on the left to view its content.</pre>
+      </div>
+
+      <div class="bottombar">
+        <div id="fileMeta">No file selected</div>
+        <div>
+          <span class="small">Search matches: </span><span id="matches">0</span>
+          <span id="copyFeedback" style="display:none" class="copy-ok">Copied ✓</span>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // --------- FILE CONTENTS EMBEDDED ----------
+    const files = [
+      {
+        name: "scalapracticals.txt",
+        filename: "scalapracticals.txt",
+        content: `Practical No: 01
+Aim:- Write a simple Scala Program that prints a welcome message for data scientists.
+Input:
+object Hellomsg {
+  def main(args: Array[String]): Unit = {
+    println("Welcome to CS Students to Become Data Scientist")
+  }
+}
+Practical No: 02
+Aim:- Calculate mean, median, and mode of a list of numbers. Implement basic statistical calculations using Scala collections.
+object math {
+    def main(args: Array[String]): Unit={
+        val num= List(1,3,3,5,7,9,11,13,15)
+        val mean= num.sum/num.size
+
+        val sorted_num=num.sorted
+        val median= if (num.size%2==0){
+            (sorted_num(num.size/2)+sorted_num(num.size/2-1))/2
+        }
+        else{
+            sorted_num(num.size/2)
+        }
+
+        val frequencymap= num.groupBy(a =>a).map(a => (a._1,a._2.size))
+        val highfreq=frequencymap.values.max
+        val mode=frequencymap.filter(b => b._2==highfreq).keys.toList
+
+        println(s"Mean:$mean")
+        println(s"Median:$median")
+        println(s"Mode:$mode")
+    }  
+}
+
+
+
+Practical No: 03
+Aim:- Generate a random dataset of 10 numbers and calculate its variance and standard deviation.
+Input:
+import scala.util.Random
+import scala.math
+object methcalc {
+  def main(args:Array[String]):Unit={
+    val dataset=Vector.fill(10)(Random.nextInt(50)+1)
+    println(dataset)
+    val mean= dataset.sum/dataset.size
+    val variance=dataset.map(x=>math.pow(x-mean,2)).sum / dataset.size
+    println(s"variance:$variance")
+    val stddev=math.sqrt(variance)
+    println(f"Standard Deviation:$stddev%.2f")
+  }
+}
+Practical No: 04
+Aim:- Create a dense vector using Breeze and calculate its sum, mean, and dot product with another vector.
+Input:
+import breeze.linalg._
+import breeze.stats.mean
+object breezevector {
+    def main(args:Array[String]):Unit={
+        val vector1=DenseVector(2.0,4.0,6.0,8.0,10.0)
+        println(s"Vector1 $vector1")
+        val sum1= sum(vector1)
+        println(s"Sum:$sum1")
+        val mean1=mean(vector1)
+        println(s"Mean:$mean1")
+        val vector2=DenseVector(1.0,3.0,5.0,7.0,9.0)
+        println(s"Vector2 $vector2")
+        val dotprod= vector1 dot vector2
+        println(s"Dot Product:$dotprod")
+    }
+}
+
+Practical No: 05
+Aim:- Generate a random matrix using Breeze and compute its transpose and determinant.
+import breeze.linalg._
+object matrixcalc {
+    def main(args:Array[String]):Unit={
+        val mat=DenseMatrix.rand[Double](3, 3)
+        val transpose=mat.t
+        val determinant=det(mat)
+        println("Matrix:")
+        println(mat)
+        println("Transpose:")
+        println(transpose)
+        println("Determinant:")
+        println(determinant)
+    }
+}
+Practical No: 06
+Aim:- Slice a Breeze matrix to extract a sub-matrix and calculate its row and column sums.
+Input:
+import breeze.linalg._
+object matcalc {
+  def main(args:Array[String]):Unit={
+    val mat=DenseMatrix.rand(4,4)
+    println("Matrix:")
+    println(mat)
+    val submat=mat(0 to 1, 0 to 1)
+    println("Submatrix:")
+    println(submat)
+
+    val rowsum=sum(submat(*,::))
+    println("Sum of Rows of Submatrix:")
+    println(rowsum)
+
+    val colsum=sum(submat(::,*))
+    println("Sum of Cols of Submatrix:")
+    println(colsum)
+
+  }
+}
+Practical No: 07
+Aim:- Write a program to perform element-wise addition, subtraction, multiplication, and division of two Breeze matrices.
+Input:
+import breeze.linalg._
+import breeze.numerics._
+object matrixop {
+  def main(args:Array[String]):Unit={
+    val mat1=DenseMatrix((1,2,3),(4,5,6),(7,8,9))
+    val mat2=DenseMatrix((9,8,7),(6,5,4),(3,2,1))
+    println(s"Matrix 1:\n$mat1")
+    println(s"Matrix 2:\n$mat2")
+    val add=mat1+mat2
+    val sub=mat2-mat1
+    val mul=mat1 *:* mat2
+    val div=mat1 /:/ mat2
+    println(s"Element-Wise Addition:\n$add")
+    println(s"Element-Wise Subtraction:\n$sub")
+    println(s"Element-Wise Multiplication:\n$mul")
+    println(s"Element-Wise Division:\n$div")
+  }
+}
+Practical No: 08
+Aim:- Read a CSV file and calculate basic statistics for each numeric column. Use the scala-csv library or similar tools.
+Input:
+import com.github.tototoshi.csv._
+import java.io.File
+object stats {
+    def main(args: Array[String]):Unit={
+        val file=CSVReader.open(new File("sample.csv"))
+        val rows=file.allWithHeaders()
+        file.close()
+        val columns=rows.head.keys.toList.filter(_!="Name")
+        for(column<-columns){
+            val values=rows.map(row=>row(column).toDouble)
+            val count=values.size
+            val sum=values.sum
+            val mean=sum/count
+            println(s"Column:$column")
+            println(s"Count:$count")
+            println(s"Sum:$sum")
+            println(s"Mean:$mean")
+        }
+    }
+}
+Practical No: 09
+Aim:- Create a scatter plot of random data using Breeze-viz. Label the axes and customize the color of points
+Input:
+import breeze.linalg._
+import breeze.plot._
+import java.awt.Color
+object Practical09 {
+    def main(args:Array[String]):Unit={
+        val weight=DenseVector.rand(10)
+        val height=DenseVector.rand(10)
+        val fig=Figure("Scatter Plot")
+        val plt=fig.subplot(0)
+        plt+=scatter(weight,height,_ =>0.01,_ =>java.awt.Color.MAGENTA)
+        plt.xlabel="weight"
+        plt.ylabel="height"
+        plt.title= "Height vs Weight Relation"
+        fig .refresh()
+        scala.io.StdIn.readLine()
+    }
+}
+Practical No: 10
+Aim:- Plot a line graph for a dataset showing a trend over time.
+Input:
+import breeze.linalg._
+import breeze.plot._
+object Practical10 {
+  def main(args:Array[String]):Unit={
+        val month=DenseVector(1,2,3,4,5,6,7,8,9,10,11,12)
+        val sales=DenseVector(200,250,300,350,150,140,200,250,400,320,450,130)
+        val fig=Figure("Line Plot")
+        val plt=fig.subplot(0)
+        plt+=plot(month,sales,colorcode="m")
+        plt.xlabel="Month"
+        plt.ylabel="Sales"
+        plt.title= "Monthly Sales Trend"
+        plt.legend=true
+        fig .refresh()
+        scala.io.StdIn.readLine()
+    }
+}
+Practical No: 11
+Aim:- Write a program to tokenize and count the frequency of words in a text file.
+Input:
+import breeze.linalg._
+import breeze.plot._
+import scala.util.Random
+object Practical11 {
+    def main(args:Array[String]): Unit = {
+        val data=DenseVector.fill(500)(Random.nextDouble() * 100)
+        val fig = Figure("Histogram Example")
+        val pit1 = fig.subplot(2, 1, 0)
+        pit1+=hist(data, bins = 10)
+        pit1.title="Histogram with 10 bins"
+        pit1.xlabel= "Value"
+        pit1.ylabel= "Frequency"
+        val pit2 = fig.subplot(2, 1, 1)
+        pit2+=hist(data, bins =30)
+        pit2.title= "Histogram with 20 bins"
+        pit2.xlabel= "Value"
+        pit2.ylabel= "Frequency"
+        fig.refresh()
+        scala.io.StdIn.readLine()
+    }
+}
+Practical No: 12
+Aim:- Find the correlation between two lists of numbers. Implement the formula for Pearson correlation coefficient.
+Input:
+object Practical12 {
+  def main(args:Array[String]):Unit={
+     val x=List(1,2,3,4,5,6)
+     val y=List(7,8,9,10,11,12)
+     val res=corr(x,y)
+     println(s"Pearson Correlation Coefficient:$res")
+  }
+  def corr(x:List[Int],y:List[Int]):Double={
+    val xmean=x.sum.toDouble/x.size
+    val ymean=y.sum.toDouble/y.size
+    var numerator=0.0
+    for (i<-x.indices){
+        numerator +=(x(i)-xmean)*(y(i)-ymean)
+    }
+    val xdenominator=scala.math.sqrt(x.map(xi=>scala.math.pow(xi-xmean,2)).sum)
+    val ydenominator=scala.math.sqrt(y.map(yi=>scala.math.pow(yi-ymean,2)).sum)
+    val denominator=xdenominator*ydenominator
+    numerator/denominator
+  }
+}
+Practical No: 13
+Aim:- Calculate the moving average of a time series data using Scala collections.
+Input:
+object movingaverage {
+  def main(args:Array[String]):Unit={
+    val timeseries=List(10,20,30,40,50,60,70,80,90,100)
+    val windowsize=3
+    val res=moveavg(timeseries,windowsize)
+    println(s"Moving Average of TimeSeries:$res")
+  }
+  def moveavg(data:List[Int],window:Int):List[Double]={
+    val res=data.sliding(window).map(_.sum.toDouble / window).toList
+    res
+  }
+}
+Practical No: 14
+Aim:- Write a program to compute frequency distribution and cumulative frequency of a dataset.
+Input:
+object Practical14 {
+    def main(args: Array[String]): Unit = {
+        val data = List(2, 3, 2, 5, 3, 2, 4, 5, 5, 3)
+        val unique= data.distinct.sorted
+        var cumFreq = 0
+        println("Values\tFreq\tCumulative")
+        for (v <- unique) {
+            val freq = data.count(_ == v)
+            cumFreq += freq
+            println(s"$v\t$freq\t$cumFreq")
+        }
+    }
+}
+Practical No: 15
+Aim:- Sort a dataset by a specific column and extract the top 5 rows.
+Input:
+object Sorting {
+  def main(args: Array[String]): Unit={
+    val dataset=List(("Doraemon",90),
+                     ("Nobita",50),
+                     ("Shizuka",85),
+                     ("Gian",70),
+                     ("Sunio",75),
+                     ("Dorami",95))
+    val top5data= dataset.sortBy(_._2)(Ordering[Int].reverse).take(5)
+    println("Top 5 scorer:")
+    top5data.foreach{case(name,score)=>println(s"$name:$score")}
+  }
+}
+
+
+
+Practical No: 16
+Aim:- Implement linear regression using Breeze. Fit a model to a small dataset and predict a value.
+Input:
+import breeze.linalg._
+object LinearRegression {
+    def main(args: Array[String]): Unit = {
+        val x = DenseVector(1.0, 2.0, 3.0, 4.0, 5.0)
+        val y = DenseVector(2.0, 4.0, 6.0, 8.0, 10.0)
+
+        val meanx = sum(x) / x.length
+        val meany = sum(y) / y.length
+
+        val slope = sum((x - meanx) *:* (y - meany)) / sum((x - meanx) *:* (x - meanx))
+        val intercept = meany - slope * meanx
+
+        println(s"Linear Model: y = $slope * x + $intercept")
+
+        val xnew = 6.0
+        val ypredicted = slope * xnew + intercept
+        println(s"Predicted value: $ypredicted")
+    }
+}
+Practical No: 17
+Aim:- Perform Logistic regression using Smile. Classify a dataset with a binary labels.
+Input:
+import smile.classification.LogisticRegression
+import smile.data._
+object logiregression {
+    def main(args:Array[String]): Unit = {
+        val x = Array(
+            Array(1.0),
+            Array(2.0),
+            Array(3.0),
+            Array(4.0),
+            Array(5.0),
+            Array(6.0)
+        )
+        val y = Array(0, 0, 0, 1, 1, 1)
+        val model = LogisticRegression.fit(x, y)
+        val prediction = model.predict(Array(3.5))
+        println(s"Prediction: $prediction")
+    }
+}
+Practical No: 18
+Aim:- Compute the Euclidean distance between two Breeze vectors. Use it for nearest neighbour classification.
+Input:
+import breeze.linalg._
+object knn {
+
+  def euclideanDistance(x: DenseVector[Double], y: DenseVector[Double]): Double = {
+    norm(x - y)
+  }
+  def nearestNeighbour(train: Array[DenseVector[Double]], test: DenseVector[Double], labels: Array[Int]): Int = {
+    val distance = train.map(euclideanDistance(_, test))
+    val min = distance.zipWithIndex.minBy(_._1)._2
+    labels(min)
+  }
+  def main(args: Array[String]): Unit = {
+    val traindata = Array(
+      DenseVector(1.0, 1.5),
+      DenseVector(2.0, 2.5),
+      DenseVector(3.0, 3.5),
+      DenseVector(4.0, 4.5)
+    )
+    val labels = Array(1, 0, 1, 0)
+    val testdata = DenseVector(1.5, 2.5)
+    val predict = nearestNeighbour(traindata, testdata, labels)
+    println(predict)
+  }
+}
+Practical No: 19
+Aim:- Cluster a dataset into two groups using k-means clustering in Smile.
+Input:
+import smile.clustering._
+object kmeansalgo {
+  def main(args:Array[String]):Unit = {
+    val data = Array(
+        Array(1.0, 2.0),
+        Array(1.5, 1.8),
+        Array(5.0, 8.0),
+        Array(8.0, 8.0),
+        Array(1.0, 0.6),
+        Array(9.0, 11.0)
+    )
+    val model = KMeans.fit(data, 2)
+    val cluster = model.predict(Array(2.0, 2.0))
+    println(s"Predicted cluster: $cluster")
+  }
+}
+Practical No. 20
+Aim: Write a program to tokenize and count the frequency of words in a text file.
+Input:
+import scala.io.Source
+object wordcount {
+  def main(args:Array[String]): Unit={
+    val text=Source.fromFile("sample.txt").mkString
+    val words=text.toLowerCase().split("\\W+")
+    val counts=words.groupBy(word=>word).mapValues(_.length)
+    println("Word Count:")
+    for((word, count)<-counts){
+        println(word +": " + count)
+    }
+  }
+}`
+      },
+      {
+        name: "javapractical.txt",
+        filename: "javapractical.txt",
+        content: `Practical No: 01
+Aim:-
+A)Write a java program for the addition of two integers.
+B) Write a java program for the average of three integers.
+A)    Write a java program for the addition of two integer.
+Input:
+class Addition
+    {
+    public static void main(String args[]){
+            int a=5;
+            int b=7;
+            int c;
+            c=a+b;
+    System.out.println("Addition of two no. is"+c);
+    
+    }
+}
+B)    Write a java program for the average of three integers
+Input:
+public class Average {
+    public static void main(String[] args) {
+        double num1 = 20.5;
+        double num2 = 30.5;
+        double num3 = 40.5;
+
+        double average = (num1 + num2 + num3) / 3;
+        System.out.println("The average is: " + average);
+    }
+}
+Practical No: 02
+Aim:-
+A.    Write a Java program to Implement Single Inheritance.
+B.    Write a Java program to Implement Method Overriding.
+C.    Write a Java program to Implement Method Overloading.
+D.    Write a Java program to Implement Abstract Class.
+E.    Write a Java program to Implement Interface.
+Input:
+class Animal {
+    public void eat() {
+        System.out.println("I can eat");
+    }
+}
+
+class Dog extends Animal {
+    void display() {
+        System.out.println("I can bark");
+    }
+
+    public static void main(String[] args) {
+        Dog d1 = new Dog();
+        d1.display();
+        d1.eat(); 
+    }
+}
+Write a Java program to implement Method Overriding.
+Input:
+class Vehicle{
+    void run(){System.out.println("Vehicle is Running");}
+}
+class Bike extends Vehicle{
+    void run(){System.out.println("Bike is Running Safely");}
+}
+public class Main{
+    public static void main(String args[]){
+        Bike obj = new Bike();;
+        obj.run();
+    }
+}
+Write a Java program to implement Method Overloading.
+Input: 
+class MathUtils {
+    int add(int a, int b) {
+        return a + b;
+    }
+    double add(double a, double b) {
+        return a + b;
+    }
+}
+public class TestMethodOverload {
+    public static void main(String[] args) {
+        MathUtils m = new MathUtils();
+        System.out.println(m.add(5, 3));
+        System.out.println(m.add(5.5, 3.2));
+    }
+}
+
+Write a Java program to implement the Abstract Class
+Input:
+abstract class Animal {
+    abstract void sound();
+    void eat() {
+        System.out.println("Eating food...");
+    }
+}
+class Dog extends Animal {
+    void sound() {
+        System.out.println("Barks");
+    }
+}
+public class TestAbstract {
+    public static void main(String[] args) {
+        Dog d = new Dog();
+        d.sound();
+        d.eat();
+    }
+}
+Write a Java program to implement the Interface.
+Input:
+interface Shape {
+    void draw();
+}
+class Circle implements Shape {
+    public void draw() {
+        System.out.println("Drawing Circle");
+    }
+}
+public class TestInterface {
+    public static void main(String[] args) {
+        Shape s = new Circle();
+        s.draw();
+    }
+}
+Practical No: 03
+Aim:-
+A)    Write a java program to implement Built-in package.
+B)    Write a java program to implement Exception Handling.
+
+A) Write a java program to implement built-in package.
+Input:
+
+import java.util.Scanner;
+
+class Geeks {
+    public static void main(String[] args) {
+
+        Scanner sc = new Scanner(System.in);
+        System.out.println("Enter your name:");
+        String name = sc.nextLine(); 
+
+        System.out.println("Hello, " + name + " Welcome to the GeeksforGeeks.");
+    }
+}
+B) Write a java program to implement exception handling.
+Input:
+import java.io.*;
+class exception{
+   public static void main(String[] args)
+   {
+    int n = 10;
+    int m= 0;
+    try{ 
+      int ans = n/m;
+      System.out.println("Answer: " + ans);
+    }
+    catch(ArithmeticException e) {
+       
+      System.out.println(
+          "Error: Divison by zero is not allowed!");
+    }
+    finally{
+         System.out.println(
+              "Program continues after handling the exception.");
+       }
+    }
+}
+Practical No: 04
+Aim:- Multithreading: Thread creation, Thread life cycle, Synchronization, wait(), notify(), notifyAll().
+class BankAccount { 
+ private int balance = 0; 
+ public synchronized void deposit(int amount) { 
+ balance += amount; 
+ System.out.println("Deposited: " + amount); 
+ notify(); 
+ } 
+ public synchronized void withdraw(int amount) { 
+ while (balance < amount) { 
+ System.out.println("Insufficient balance. Waiting for deposit...");  try { 
+ wait(); 
+ } catch (InterruptedException e) { 
+ e.printStackTrace(); 
+ } 
+ } 
+ balance -= amount; 
+ System.out.println("Withdrawn: " + amount); 
+ } 
+ public int getBalance() { 
+ return balance; 
+ } 
+} 
+class Depositor extends Thread { 
+ private BankAccount account; 
+ public Depositor(BankAccount account) { 
+ this.account = account; 
+ } 
+ public void run() { 
+ try { 
+ Thread.sleep(1000); 
+ account.deposit(1000); 
+ } catch (InterruptedException e) { 
+ e.printStackTrace(); 
+ } 
+ } 
+} 
+class Withdrawer extends Thread { 
+ private BankAccount account; 
+ public Withdrawer(BankAccount account) { 
+ this.account = account; 
+ } 
+ public void run() { 
+ account.withdraw(500); 
+ } 
+} 
+public class BankApp { 
+ public static void main(String[] args) { 
+ BankAccount account = new BankAccount(); 
+
+ Withdrawer t1 = new Withdrawer(account); 
+ Depositor t2 = new Depositor(account); 
+ t1.start(); 
+ t2.start(); 
+ } 
+}
+
+
+
+Practical No: 05
+Aim:-
+A.    Write a java program to implement a Calculator.
+B.    Write a java program to implement a Biodata using swing.
+C.    Write a java program to implement a Calculator.
+Input:
+import java.awt.*;
+import java.awt.event.*;
+import javax.swing.*;
+public class Calculator extends JFrame implements ActionListener {
+JButton addBtn, subBtn, mulBtn, divBtn, eqBtn, clrBtn;
+JButton[] digitButtons = new JButton[10];
+JTextField res;
+int n1, n2, result;
+char op;
+public Calculator() {
+        super("Calculator");
+        setLayout(new BorderLayout());
+        res = new JTextField();
+        res.setEditable(false);
+        res.setHorizontalAlignment(JTextField.RIGHT);
+        add(res, BorderLayout.NORTH);
+        JPanel p = new JPanel();
+        p.setLayout(new GridLayout(4, 4, 5, 5));
+        for (int i = 0; i <= 9; i++) {
+            digitButtons[i] = new JButton(String.valueOf(i));
+            digitButtons[i].addActionListener(this);
+            p.add(digitButtons[i]);
+        }
+        addBtn = new JButton("+");
+        subBtn = new JButton("-");
+        mulBtn = new JButton("*");
+        divBtn = new JButton("/");
+        eqBtn = new JButton("=");
+        clrBtn = new JButton("C");
+        addBtn.addActionListener(this);
+        subBtn.addActionListener(this);
+        mulBtn.addActionListener(this);
+        divBtn.addActionListener(this);
+        eqBtn.addActionListener(this);
+        clrBtn.addActionListener(this);
+        p.add(addBtn);
+        p.add(subBtn);
+        p.add(mulBtn);
+        p.add(divBtn);
+        p.add(eqBtn);
+        p.add(clrBtn);
+        add(p, BorderLayout.CENTER);
+        setSize(250, 250);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setVisible(true);
+    }
+    public void actionPerformed(ActionEvent ae) {
+        JButton btnClicked = (JButton) ae.getSource();
+        if (btnClicked == clrBtn) {
+            res.setText("");
+            n1 = n2 = result = 0;
+        } else if (btnClicked == eqBtn) {
+            try {
+                n2 = Integer.parseInt(res.getText());
+                eval();
+                res.setText(String.valueOf(result));
+            } catch (NumberFormatException e) {
+                res.setText("Error");
+            }
+        } else if (btnClicked == addBtn || btnClicked == subBtn ||
+                   btnClicked == mulBtn || btnClicked == divBtn) {
+            try {
+                n1 = Integer.parseInt(res.getText());
+                res.setText("");
+                if (btnClicked == addBtn) op = '+';
+                else if (btnClicked == subBtn) op = '-';
+                else if (btnClicked == mulBtn) op = '*';
+                else if (btnClicked == divBtn) op = '/';
+            } catch (NumberFormatException e) {
+                res.setText("Error");
+            }
+        } else {
+            for (int i = 0; i <= 9; i++) {
+                if (btnClicked == digitButtons[i]) {
+                    res.setText(res.getText() + i);
+                    break;
+                }
+            }
+        }
+    }
+    void eval() {
+        switch (op) {
+            case '+': result = n1 + n2; break;
+            case '-': result = n1 - n2; break;
+            case '*': result = n1 * n2; break;
+            case '/':
+                if (n2 != 0) result = n1 / n2;
+                else {
+                    res.setText("Divide by 0");
+                    return;
+                }
+                break;
+        }
+    }
+    public static void main(String[] args) {
+        new Calculator();
+    }
+}
+A.    Write a java program to implement a Biodata using swing.
+Code:
+import javax.swing.*; 
+import java.awt.*; 
+import java.awt.event.*; 
+class Biodata extends JFrame implements ActionListener { 
+ private JLabel l1,l2,l3,l4; 
+ private JTextField n; 
+ private JRadioButton r1,r2; 
+ private ButtonGroup g; 
+ private JCheckBox c1,c2,c3; 
+ private JTextArea a; 
+ private JButton b;   
+ Biodata() 
+ { 
+ super("Enter Biodata"); 
+ Container c = getContentPane(); 
+ c.setLayout(new GridLayout(4,2));   
+ l1 = new JLabel("Name"); 
+ c.add(l1);  
+ n = new JTextField("Enter your name",20);  n.setToolTipText("Please enter your name");  c.add(n); 
+ l4 = new JLabel("Gender"); 
+ c.add(l4); 
+ r1 = new JRadioButton("Male",true);  c.add(r1); 
+ r2 = new JRadioButton("Female",false);  c.add(r2); 
+ g = new ButtonGroup(); 
+ g.add(r1); 
+ g.add(r2); 
+ l2 = new JLabel("Qualification");  c.add(l2); 
+ c1 = new JCheckBox("BTech"); 
+ c.add(c1); 
+ c2 = new JCheckBox("BSc.CS"); 
+ c.add(c2); 
+ c3 = new JCheckBox("BSc.IT"); 
+ c.add(c3); 
+ l3 = new JLabel("Address"); 
+ c.add(l3); 
+ a = new JTextArea(10,15); 
+ c.add(a); 
+ b = new JButton("Show");
+ c.add(b); 
+ b.addActionListener(this); 
+ setVisible(true); 
+ setSize(400,400); 
+ } 
+ public void actionPerformed(ActionEvent e)  { 
+ String s = ""+n.getText()+"\n"; 
+ s += (r1.isSelected())?r1.getText()+"\n":r2.getText()  +"\n"; 
+ if(c1.isSelected()) s += (c1.getText()) + " ";  if(c2.isSelected()) s += (c2.getText()) + " ";  if(c3.isSelected()) s += (c3.getText());  s += "\n"+a.getText()+"\n"; 
+ JOptionPane.showMessageDialog(null,s);  } 
+ public static void main(String args[]) 
+ {  
+ new Biodata(); 
+ } 
+}`
+      }
+    ];
+
+    // ---------- UI wiring ----------
+    const fileListEl = document.getElementById('fileList');
+    const viewer = document.getElementById('fileContent');
+    const fileMeta = document.getElementById('fileMeta');
+    const matchesEl = document.getElementById('matches');
+    const searchInput = document.getElementById('searchInput');
+    const copyBtn = document.getElementById('copyBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const openNewBtn = document.getElementById('openNewBtn');
+    const openAllBtn = document.getElementById('openAll');
+    const downloadAllBtn = document.getElementById('downloadAll');
+    const copyFeedback = document.getElementById('copyFeedback');
+
+    let currentIndex = -1;
+
+    function makeFileItem(f, idx){
+      const div = document.createElement('div');
+      div.className = 'file-item';
+      div.tabIndex = 0;
+      div.role = "listitem";
+      div.innerHTML = `<div style="flex:1">
+                          <div style="font-weight:700">${f.name}</div>
+                          <div class="meta">${f.filename} • ${Math.max(1, f.content.length).toString()} chars</div>
+                       </div>`;
+      div.addEventListener('click', ()=> selectIndex(idx));
+      div.addEventListener('keydown', (e)=> { if(e.key==='Enter') selectIndex(idx); });
+      return div;
+    }
+
+    // populate list
+    files.forEach((f,i)=>{
+      fileListEl.appendChild(makeFileItem(f,i));
+    });
+
+    function selectIndex(i){
+      currentIndex = i;
+      const items = fileListEl.querySelectorAll('.file-item');
+      items.forEach((it,ii)=> it.classList.toggle('active', ii===i));
+      showFile(files[i]);
+    }
+
+    function showFile(file){
+      // display text safely as plain text
+      viewer.innerText = file.content;
+      fileMeta.innerText = `${file.filename} — ${file.content.length} characters`;
+      matchesEl.innerText = '0';
+      searchInput.value = '';
+      // reset copy feedback
+      copyFeedback.style.display = 'none';
+    }
+
+    // search inside currently open file
+    function searchInFile(term){
+      if(!term || currentIndex<0){ matchesEl.innerText='0'; return; }
+      const content = files[currentIndex].content;
+      const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig');
+      const matches = content.match(regex);
+      matchesEl.innerText = matches ? matches.length : 0;
+
+      // highlight results by creating HTML with mark tags (but keep escaping)
+      const parts = [];
+      let lastIndex = 0;
+      let match;
+      let out = '';
+      while ((match = regex.exec(content)) !== null) {
+        out += escapeHtml(content.slice(lastIndex, match.index));
+        out += '<mark style="background:rgba(125,211,252,0.18); color:inherit; padding:0 2px;">' + escapeHtml(match[0]) + '</mark>';
+        lastIndex = regex.lastIndex;
+        // prevent infinite loops with zero-length matches
+        if (regex.lastIndex === match.index) regex.lastIndex++;
+      }
+      out += escapeHtml(content.slice(lastIndex));
+      if (matches) {
+        viewer.innerHTML = '<pre>' + out + '</pre>';
+      } else {
+        viewer.innerText = content;
+      }
+    }
+
+    // helper: escape HTML
+    function escapeHtml(s){
+      return s.replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]; });
+    }
+
+    searchInput.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter') {
+        searchInFile(searchInput.value.trim());
+      }
+    });
+
+    // copy content
+    copyBtn.addEventListener('click', async ()=>{
+      if(currentIndex<0) return alert('Pick a file first from the left.');
+      try{
+        await navigator.clipboard.writeText(files[currentIndex].content);
+        copyFeedback.style.display = 'inline-block';
+        setTimeout(()=> copyFeedback.style.display = 'none', 1800);
+      }catch(err){
+        alert('Copy failed: ' + err);
+      }
+    });
+
+    // download current file
+    downloadBtn.addEventListener('click', ()=>{
+      if(currentIndex<0) return alert('Pick a file first from the left.');
+      downloadTextFile(files[currentIndex].content, files[currentIndex].filename);
+    });
+
+    // open in new window as plain text
+    openNewBtn.addEventListener('click', ()=>{
+      if(currentIndex<0) return alert('Pick a file first from the left.');
+      const w = window.open();
+      w.document.title = files[currentIndex].filename;
+      const pre = w.document.createElement('pre');
+      pre.style.whiteSpace = 'pre-wrap';
+      pre.textContent = files[currentIndex].content;
+      w.document.body.style.background='#0b1220';
+      w.document.body.style.color='#e6eef6';
+      w.document.body.style.fontFamily='ui-monospace,Menlo,monospace';
+      w.document.body.style.padding='14px';
+      w.document.body.appendChild(pre);
+    });
+
+    // open both files (show first then scroll)
+    openAllBtn.addEventListener('click', ()=>{
+      // choose first file and then open both in new windows
+      files.forEach(f=>{
+        const w = window.open();
+        w.document.title = f.filename;
+        const pre = w.document.createElement('pre');
+        pre.style.whiteSpace = 'pre-wrap';
+        pre.textContent = f.content;
+        w.document.body.style.background='#0b1220';
+        w.document.body.style.color='#e6eef6';
+        w.document.body.style.fontFamily='ui-monospace,Menlo,monospace';
+        w.document.body.style.padding='14px';
+        w.document.body.appendChild(pre);
+      });
+    });
+
+    // download all: create .txt download for each (browser will prompt multiple downloads)
+    downloadAllBtn.addEventListener('click', ()=>{
+      files.forEach(f => downloadTextFile(f.content, f.filename));
+    });
+
+    function downloadTextFile(text, filename){
+      const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    // utility to programmatically select first file on load
+    if(files.length>0) selectIndex(0);
+
+    // accessibility: allow Ctrl+F-like quick search focusing
+    window.addEventListener('keydown', (e)=>{
+      if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='f'){ e.preventDefault(); searchInput.focus(); }
+    });
+
+    // small helper to ensure viewer uses plain text initially
+    (function initViewerAccessibility(){ viewer.setAttribute('aria-live','polite'); })();
+
+  </script>
+</body>
+</html>
